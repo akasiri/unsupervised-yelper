@@ -31,18 +31,12 @@ train_counts = count_vect.fit_transform(random.sample(raw_data, 30000))
 raw_data = 0
 
 # load business to list of reviews for that business dictionary
-btr = pickle.load(open("pickles/dict-of-business-to-reviews.p", "rb"))
+#btr = pickle.load(open("pickles/dict-of-business-to-reviews.p", "rb"))
 
-<<<<<<< HEAD:arzang-branch.py
-raw_data = 0
 btr = pickle.load(open("dict-of-business-to-reviews.p", "rb"))
-docnames = ["ASC", "Burger King", "McDonald's", "Hunter Farm", "PCR"]
-=======
-# hardcoded names of test businesses
 docnames = ["Appliance Service Center", "Burger King", "McDonald's", "Hunter Farm", "Panda Chinese Restaurant"]
 
 # johnathan's thing
->>>>>>> 0a6ed3a01f87af56b17436376262e7b13644f094:arzang-branch+johnathan.py
 test_counts = count_vect.transform(btr["Appliance Service Center"] + btr["Burger King"] + btr["Hunter Farm"] + btr["McDonald's"] + btr["Panda Chinese Restaurant"])
 
 tfidf_transformer = TfidfTransformer()
@@ -50,11 +44,6 @@ tfidf_transformer = TfidfTransformer()
 train_tfidf = tfidf_transformer.fit_transform(train_counts)
 test_tfidf = tfidf_transformer.transform(test_counts)
 
-<<<<<<< HEAD:arzang-branch.py
-print(tfidf_transformer)
-print(train_tfidf)
-=======
->>>>>>> 0a6ed3a01f87af56b17436376262e7b13644f094:arzang-branch+johnathan.py
 
 dtm = train_tfidf
 dtm_test = test_tfidf
@@ -69,18 +58,18 @@ import sklearn.feature_extraction.text as text
 
 from sklearn import decomposition
 
-num_topics = 5
-num_top_words = 10
+num_topics = 15
+num_top_words = 15
 
 nmf = decomposition.NMF(n_components=num_topics, random_state=1)
 
 # this next step may take some time
 doctopic = nmf.fit_transform(dtm)
 doctopic = doctopic / np.sum(doctopic, axis=1, keepdims=True)
-print(doctopic.shape)
-
-print("components")
-print(nmf.components_)
+#print(doctopic.shape)
+#
+#print("components")
+#print(nmf.components_)
 # print words associated with topics
 topic_words = []
 for topic in nmf.components_:
@@ -101,30 +90,30 @@ for t in range(len(topic_words)):
 result = nmf.transform(dtm_test)
 
 # Find the top topics for the restaurant given above
-m = []
-for i in range(num_topics):
-    m.append(0)
-    
-for i in result:
-    for j in range(num_topics):
-        m[j] += i[j]
-
-top5 = [(0,0),(0,0),(0,0),(0,0),(0,0)]
-
-for i in range(num_topics):
-    if m[i] > top5[4][1]:
-        top5[4] = (i, m[i])
-        top5.sort(reverse=True)
-
-for (t,p) in top5:
-    print("Topic {}: {}".format(t+1, ' '.join(topic_words[t][:10])))
+#m = []
+#for i in range(num_topics):
+#    m.append(0)
+#    
+#for i in result:
+#    for j in range(num_topics):
+#        m[j] += i[j]
+#
+#top5 = [(0,0),(0,0),(0,0),(0,0),(0,0)]
+#
+#for i in range(num_topics):
+#    if m[i] > top5[4][1]:
+#        top5[4] = (i, m[i])
+#        top5.sort(reverse=True)
+#
+#for (t,p) in top5:
+#    print("Topic {}: {}".format(t+1, ' '.join(topic_words[t][:10])))
     
 
 doctopic = nmf.transform(dtm_test)
 doctopic = doctopic / np.sum(doctopic, axis=1, keepdims=True)
 
-print(dtm_test)
-print(doctopic)
+#print(dtm_test)
+#print(doctopic)
 
 # turn this into an array so we can use NumPy functions
 docnames = np.asarray(docnames)
@@ -136,66 +125,101 @@ num_groups = len(set(docnames))
 
 doctopic_grouped = np.zeros((num_groups,num_topics))
 
-print("i, ")
-print(doctopic_grouped[1, :])
+#print("i, ")
+#print(doctopic_grouped[1, :])
 
 for i, name in enumerate(sorted(set(docnames))):
     doctopic_grouped[i, :] = np.mean(doctopic[docnames == name, :], axis=0)
 
 doctopic = doctopic_grouped
-
+#print("doctopic_grouped")
+#print(doctopic)
 businesses = sorted(set(docnames))
-
+print("businesses")
+print(businesses)
 print("Top NMF topics in...")
 
-
+d = dict()
+for business in docnames:
+    d[business] = [];
+    
 for i in range(len(doctopic)):
     top_topics = np.argsort(doctopic[i,:])[::-1][0:3]
     top_topics_str = ' '.join(str(t+1) for t in top_topics)
     print("{}: {}".format(businesses[i], top_topics_str))
     
-print(doctopic.shape)
-N, K = doctopic.shape  # N documents, K topics
+    words_to_look_for = []
+    for t in top_topics:
+        for word in topic_words[t]:
+            words_to_look_for.append(word)
+            
+    print(words_to_look_for)            
+    for review in btr[businesses[i]][0:15]:
+        count = 0
+        for word in words_to_look_for:
+            if (word in review):
+                print(word)
+                count = count + 1
+                continue
+            if(count == 5):
+                d[businesses[i]].append(review)
+                break;
 
-ind = np.arange(N)  # the x-axis locations for the novels
+['love', 'always', 'never', 'favorite', 'time', 'come', 'every', 'get', 'fresh', 
+'location', 'times', 'usually', 'family', 'years', 'make', 'food', 'service', 
+'restaurant', 'mexican', 'excellent', 'fast', 'quality', 'bad', 'buffet', 'fresh', 
+'eat', 'chinese', 'slow', 'atmosphere', 'delicious', 'chicken', 'ordered', 'salad', 
+'delicious', 'sauce', 'cheese', 'lunch', 'rice', 'fried', 'menu', 'soup', 'sandwich', 
+'beef', 'meal', 'pork']
+for k,v in d.items():
+    print(k)
+    print(len(v))
+    print(v)
+    print()
 
-print("ind")
-print(ind)
-
-width = 0.5  # the width of the barsb
-plots = []
-
-height_cumulative = np.zeros(N)
-
-for k in range(K):
-    color = plt.cm.coolwarm(k/K, 1)
-    if k == 0:
-        p = plt.bar(ind, doctopic[:, k], width, color=color)
-    else:
-        p = plt.bar(ind, doctopic[:, k], width, bottom=height_cumulative, color=color)
-    height_cumulative += doctopic[:, k]
-    plots.append(p)
-
-plt.ylim((0, 1))  # proportions sum to 1, so the height of the stacked bars is 1
-
-plt.ylabel('Topics')
-
-
-plt.title('Topics in businesses')
-
-
-plt.xticks(ind+width/2, docnames)
-
-plt.yticks(np.arange(0, 1, 10))
-
-topic_labels = ['Topic {}'.format(k+1) for k in range(K)]
-
-# see http://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.legend for details
-# on making a legend in matplotlib
-plt.legend([p[0] for p in plots], topic_labels)
-plt.show()
-
-print(doctopic.shape)
+    
+#print(doctopic.shape)
+#N, K = doctopic.shape  # N documents, K topics
+#
+#ind = np.arange(N)  # the x-axis locations for the novels
+#
+#print("ind")
+#print(ind)
+#
+#width = 0.5  # the width of the barsb
+#plots = []
+#
+#height_cumulative = np.zeros(N)
+#
+#for k in range(K):
+#    color = plt.cm.coolwarm(k/K, 1)
+#    if k == 0:
+#        p = plt.bar(ind, doctopic[:, k], width, color=color)
+#    else:
+#        p = plt.bar(ind, doctopic[:, k], width, bottom=height_cumulative, color=color)
+#    height_cumulative += doctopic[:, k]
+#    plots.append(p)
+#
+#plt.ylim((0, 1))  # proportions sum to 1, so the height of the stacked bars is 1
+#
+#plt.ylabel('Topics')
+#
+#
+#plt.title('Topics in businesses')
+#
+#
+#plt.xticks(ind+width/2, docnames)
+#
+#plt.yticks(np.arange(0, 1, 10))
+#
+#topic_labels = ['Topic {}'.format(k+1) for k in range(K)]
+#
+## see http://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.legend for details
+## on making a legend in matplotlib
+#plt.legend([p[0] for p in plots], topic_labels)
+#plt.show()
+#
+#print(doctopic.shape)
 print("done")
 
 #mallet_vocab = []
