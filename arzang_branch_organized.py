@@ -20,21 +20,6 @@ import numpy as np  # a conventional alias
 import sklearn.feature_extraction.text as text
 from sklearn import decomposition
 
-
-#from nltk.stem.wordnet import WordNetLemmatizer
-#from nltk.chunk.regexp import RegexpParser 
-#from nltk import pos_tag
-#
-## NOUN PHRASES AS TOKENS
-#rpp = RegexpParser('''
-#NP: {<DT>? <JJ>* <NN>* <NNS>*} # NP
-#
-#''')
-##for i in training_documents:
-#tokens = re.sub("(^ )|( $)+", "", re.sub("(\s|\.|\?|,|;|:)+", " ", training_documents.lower())).split(" ")
-#tagged_doc = pos_tag(tokens)
-#parsed_doc = rpp.parse(tagged_doc)
-
 def get_reviews_for_business_name(name):
     btr = pickle.load("dict-of-business-to-reviews.p", "rb")
     return btr["name"]
