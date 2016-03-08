@@ -283,5 +283,3 @@ print("done")
 #
 #In [46]: word_topic.shape
 #Out[46]: (21988, 5)
-
-

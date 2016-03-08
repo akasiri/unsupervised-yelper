@@ -2,28 +2,33 @@ import pickle
 import random
 import re
 
-def lemmatize_docs(random_seed, number_of_docs):
-    print("Start lemmatization...")
-    
-    from nltk.stem.wordnet import WordNetLemmatizer
-    
-    random.seed(random_seed)
+"""
+    Though this will make an easy access complete dtm, you won't have the
+    countvect for when you need to build a matrix for the prediction data
+"""
+def extract_and_store_tfidf_dtm():
+    # for consistent testing
+    random.seed(1532525625823)
     
     raw_data = pickle.load(open("pickles/list-of-reviews.p", "rb"))
-    documents = random.sample(raw_data, number_of_docs)
+    documents = random.sample(raw_data, 30000)    
+    
+    from sklearn.feature_extraction.text import CountVectorizer
+    from sklearn.feature_extraction.text import TfidfTransformer
+    from nltk.corpus import stopwords
+    
+    import advanced_parsing
 
-    lemmatized_docs = []
+    count_vect = CountVectorizer(strip_accents="unicode", tokenizer = advanced_parsing.extract_np_tokens, stop_words=set(stopwords.words('english')))
+    count_matrix = count_vect.fit_transform(documents)
+
+    tfidf_transformer = TfidfTransformer()
+    tfidf_matrix = tfidf_transformer.fit_transform(count_matrix)
     
-    wnl = WordNetLemmatizer()
-    for i in documents:
-        tokens = re.sub("(^ )|( $)+", "", re.sub("(\s|\.|\?|,|;|:)+", " ", i.lower())).split(" ")
-        lemmatized_doc = ""
-        for j in tokens:
-            lemmatized_doc += wnl.lemmatize(j) + " "
-        lemmatized_docs.append(lemmatized_doc)
-    
-    pickle.dump(lemmatized_docs, open("pickles/lemmatized-docs.p", "wb"))
-    print("Lemmatization complete.")
+    # so that we don't mave to run this again if we are using 
+    pickle.dump(tfidf_matrix, open("pickles/np-30000-dtm.p", "wb"))
+    pickle.dump(count_vect, open("pickles/np-30000-count-vect.p", "wb"))
+    pickle.dump(tfidf_transformer, open("pickles/np-30000-tfidf-trans.p", "wb"))
 
 
 def extract_np_tokens( doc: str):
@@ -33,7 +38,7 @@ def extract_np_tokens( doc: str):
     pattern = """NP: {<DT|PP\$>?<JJ>*<NN>}|"""
     rpp = RegexpParser(pattern)
 
-    tokens = re.sub("(^ )|( $)+", "", re.sub("(\s|\.|\?|,|;|:|\(|\))+", " ", doc.lower())).split(" ")
+    tokens = re.sub("(^ )|( $)+", "", re.sub("(\W)+", " ", doc.lower())).split(" ")
     tagged_doc = pos_tag(tokens)
     parsed_doc = rpp.parse(tagged_doc)
     
@@ -49,7 +54,7 @@ def extract_np_tokens( doc: str):
                 np = ""
                 for (term, pos) in t.leaves():
                     np += term + " "
-                tokens.append(np)            
+                tokens.append(np[:-2])            
             
             for child in t:
                 traverse(child)
@@ -67,7 +72,7 @@ def extract_lemmatized_tokens(doc):
     wnl = WordNetLemmatizer()
     lemmatized_tokens = []
 
-    tokens = re.sub("(^ )|( $)+", "", re.sub("(\s|\.|\?|,|;|:)+", " ", doc.lower())).split(" ")
+    tokens = re.sub("(^ )|( $)+", "", re.sub("(\W)+", " ", doc.lower())).split(" ")
     for j in tokens:
         lemmatized_tokens.append(wnl.lemmatize(j))
     
@@ -75,10 +80,13 @@ def extract_lemmatized_tokens(doc):
 
 
 if __name__ == "__main__":
-    #lemmatize_docs(1532525625823, 30000)
-    doc = """The Union was formed in September 1921 by the merger of three left-wing trade unions that had not joined the Allgemeiner Deutscher Gewerkschaftsbund (ADGB), which they, like other radicalized workers in the General Workers Union of Germany (Allgemeine Arbeiter-Union Deutschlands) and the Free Workers' Union of Germany had felt was reformist. The three unions were the Gelsenkirchen Free Workers' Union, the Berlin-based Association of Manual and Intellectual Workers and the Braunschweig-based Farmworkers' Association (Landarbeiterverband). Gustav Sobottka was one of the founding members of the union. At the national level, the newly merged Union became part of the Profintern. The Union's was mainly focused in the Ruhr region and bordering areas, as well as in the Berlin area. The dominant sectors were mining and metalworking. In the Ruhr region, about half the KPD members who were members of various trade unions were also members of the Union."""
-    print(extract_np_tokens(doc))
-    print(extract_lemmatized_tokens(doc))
+    # EXAMPLE / TEST RUNS
+#    doc = """The Union was formed in September 1921 by the merger of three left-wing trade unions that had not joined the Allgemeiner Deutscher Gewerkschaftsbund (ADGB), which they, like other radicalized workers in the General Workers Union of Germany (Allgemeine Arbeiter-Union Deutschlands) and the Free Workers' Union of Germany had felt was reformist. The three unions were the Gelsenkirchen Free Workers' Union, the Berlin-based Association of Manual and Intellectual Workers and the Braunschweig-based Farmworkers' Association (Landarbeiterverband). Gustav Sobottka was one of the founding members of the union. At the national level, the newly merged Union became part of the Profintern. The Union's was mainly focused in the Ruhr region and bordering areas, as well as in the Berlin area. The dominant sectors were mining and metalworking. In the Ruhr region, about half the KPD members who were members of various trade unions were also members of the Union."""
+#    print(extract_np_tokens(doc))
+#    print(extract_lemmatized_tokens(doc))
+    
+    extract_and_store_tfidf_dtm()
+    
     
     
     
