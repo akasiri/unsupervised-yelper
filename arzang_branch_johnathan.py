@@ -35,7 +35,7 @@ raw_data = 0
 
 btr = pickle.load(open("dict-of-business-to-reviews.p", "rb"))
 docnames = ["Appliance Service Center", "Burger King", "McDonald's", "Hunter Farm", "Panda Chinese Restaurant"]
-
+docnames.sort()
 # johnathan's thing
 test_counts = count_vect.transform(btr["Appliance Service Center"] + btr["Burger King"] + btr["Hunter Farm"] + btr["McDonald's"] + btr["Panda Chinese Restaurant"])
 
@@ -58,7 +58,7 @@ import sklearn.feature_extraction.text as text
 
 from sklearn import decomposition
 
-num_topics = 15
+num_topics = 20
 num_top_words = 15
 
 nmf = decomposition.NMF(n_components=num_topics, random_state=1)
@@ -154,14 +154,14 @@ for i in range(len(doctopic)):
             words_to_look_for.append(word)
             
     print(words_to_look_for)            
-    for review in btr[businesses[i]][0:15]:
+    for review in btr[businesses[i]]:
         count = 0
         for word in words_to_look_for:
             if (word in review):
-                print(word)
+#                print(word)
                 count = count + 1
                 continue
-            if(count == 5):
+            if(count/len(review.split()) > 0.125):
                 d[businesses[i]].append(review)
                 break;
 
@@ -171,55 +171,74 @@ for i in range(len(doctopic)):
 'eat', 'chinese', 'slow', 'atmosphere', 'delicious', 'chicken', 'ordered', 'salad', 
 'delicious', 'sauce', 'cheese', 'lunch', 'rice', 'fried', 'menu', 'soup', 'sandwich', 
 'beef', 'meal', 'pork']
-for k,v in d.items():
-    print(k)
-    print(len(v))
-    print(v)
-    print()
+#for k,v in d.items():
+#    print(k)
+#    print(len(v))
+#    print(v)
+#    print()
 
     
 #print(doctopic.shape)
-#N, K = doctopic.shape  # N documents, K topics
-#
-#ind = np.arange(N)  # the x-axis locations for the novels
-#
+N, K = doctopic.shape  # N documents, K topics
+
+ind = np.arange(N)  # the x-axis locations for the novels
+
 #print("ind")
 #print(ind)
-#
-#width = 0.5  # the width of the barsb
-#plots = []
-#
-#height_cumulative = np.zeros(N)
-#
-#for k in range(K):
-#    color = plt.cm.coolwarm(k/K, 1)
-#    if k == 0:
-#        p = plt.bar(ind, doctopic[:, k], width, color=color)
-#    else:
-#        p = plt.bar(ind, doctopic[:, k], width, bottom=height_cumulative, color=color)
-#    height_cumulative += doctopic[:, k]
-#    plots.append(p)
-#
-#plt.ylim((0, 1))  # proportions sum to 1, so the height of the stacked bars is 1
-#
-#plt.ylabel('Topics')
-#
-#
-#plt.title('Topics in businesses')
-#
-#
-#plt.xticks(ind+width/2, docnames)
-#
-#plt.yticks(np.arange(0, 1, 10))
-#
-#topic_labels = ['Topic {}'.format(k+1) for k in range(K)]
-#
-## see http://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.legend for details
-## on making a legend in matplotlib
-#plt.legend([p[0] for p in plots], topic_labels)
-#plt.show()
-#
-#print(doctopic.shape)
+
+width = 0.5  # the width of the barsb
+plots = []
+
+height_cumulative = np.zeros(N)
+
+for k in range(K):
+    color = plt.cm.coolwarm(k/K, 1)
+    if k == 0:
+        p = plt.bar(ind, doctopic[:, k], width, color=color)
+    else:
+        p = plt.bar(ind, doctopic[:, k], width, bottom=height_cumulative, color=color)
+    height_cumulative += doctopic[:, k]
+    plots.append(p)
+
+plt.ylim((0, 1))  # proportions sum to 1, so the height of the stacked bars is 1
+
+plt.ylabel('Topics')
+
+
+plt.title('Topics in businesses')
+docnames = ["ASC", "Burger King", "McDonald's", "Hunter Farm", "PCR"]
+docnames.sort()
+plt.xticks(ind+width/2, docnames)
+
+plt.yticks(np.arange(0, 1, 10))
+
+topic_labels = ['Topic {}'.format(k+1) for k in range(K)]
+
+#box = plt.get_position()
+#plt.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+# see http://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.legend for details
+# on making a legend in matplotlib
+
+plt.legend([p[0] for p in plots], topic_labels, bbox_to_anchor=(1.3, 1.2))
+plt.show()
+
+docnames = ["Appliance Service Center", "Burger King", "McDonald's", "Hunter Farm", "Panda Chinese Restaurant"]
+docnames.sort()
+
+from reduction import *
+
+reduction_ratios = []
+for business in docnames:
+    aggregate_reviewtext = ''
+    for review in d[business]:
+        aggregate_reviewtext += review
+#    reduction_ratio = len(d[business])/(len(btr[business]) + len(aggregate_reviewtext))
+    reduction = Reduction()
+    reduced_text = reduction.reduce(aggregate_reviewtext, 0.125)
+    print("Summary of " + business)
+    print(reduced_text)
+
+print("end")
 print("done")
 
 #mallet_vocab = []

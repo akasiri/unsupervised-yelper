@@ -190,9 +190,23 @@ class Reduction:
 		contentLines = list(filter(lambda w: w.strip() != '', lines))
 
 		paragraphs = self.getParagraphs(contentLines, stopWords)
-
+  
+#		print("Paragraphs:")
+#		for p in paragraphs:
+#			for s in p.Sentences:
+#				for w in s.Words:             
+#					print(w.Text)
+#					print(w.Type)                            
+        
 		rankedSentences = self.sentenceRank(paragraphs)
-
+  
+#		print("Ranked Sentences: ")
+#		for k,v in rankedSentences:
+#			for w in k.Sentence.Words:
+#				print(w.Text)
+#				print(w.Type)               
+#			print(v)                
+   
 		orderedSentences = []
 		for p in paragraphs:
 			for s in p.Sentences:
