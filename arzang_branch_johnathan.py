@@ -160,13 +160,12 @@ for i in range(len(doctopic)):
     for review in btr[businesses[i]]:
         count = 0
         for word in words_to_look_for:
-            if (word in review):
-#                print(word)
-                count = count + 1
-                continue
             if(count/len(review.split()) > 0.125):
                 d[businesses[i]].append(review)
                 break
+            if (word in review):
+#                print(word)
+                count = count + 1
 
 ['love', 'always', 'never', 'favorite', 'time', 'come', 'every', 'get', 'fresh', 
 'location', 'times', 'usually', 'family', 'years', 'make', 'food', 'service', 

@@ -42,7 +42,7 @@ import sklearn.feature_extraction.text as text
 
 from sklearn import decomposition
 
-num_topics = 60
+num_topics = 100
 num_top_words = 20
 
 lda = decomposition.LatentDirichletAllocation(n_topics=num_topics, random_state=1)
@@ -61,14 +61,14 @@ for topic in nmf.components_:
 
 print(topic_words)
 print(word_idx)
-#
-#
-#print()
-#print()
-#for t in range(len(topic_words)):
-#   print("Topic {}: {}".format(t, ' '.join(topic_words[t][:10])))
-#   
-#
+
+
+print()
+print()
+for t in range(len(topic_words)):
+   print("Topic {}: {}".format(t, ' '.join(topic_words[t][:10])))
+   
+
 #result = nmf.transform(dtm_test)
 #
 ## Find the top topics for the restaurant given above

@@ -9,6 +9,9 @@ To get relevant scentences:
 topic summary
 """
 
+# =================================================================
+#                  BUILDING AND TRAINING MODEL
+# =================================================================
 
 import pickle
 import random
@@ -26,35 +29,15 @@ import matplotlib.pyplot as plt
 
 # set up a count vectorizer that removes english stopwords when building a term-doc matrix
 count_vect = CountVectorizer(stop_words=set(stopwords.words('english')))
+train_counts = count_vect.fit_transform(random.sample(raw_data, 10000))
 
-# build the term frequency per document matrix from a random sublist of 30,000 documents
-train_counts = count_vect.fit_transform(random.sample(raw_data, 30000))
-
-# reset the raw_data to clear space in memory
 raw_data = 0
 
-# load business to list of reviews for that business dictionary
-#btr = pickle.load(open("pickles/dict-of-business-to-reviews.p", "rb"))
-
-btr = pickle.load(open("pickles/dict-of-business-to-reviews.p", "rb"))
-docnames = ["Appliance Service Center", "Burger King", "McDonald's", "Hunter Farm", "Panda Chinese Restaurant"]
-docnames.sort()
-# johnathan's thing
-test_counts = count_vect.transform(btr["Appliance Service Center"] + btr["Burger King"] + btr["Hunter Farm"] + btr["McDonald's"] + btr["Panda Chinese Restaurant"])
-
 tfidf_transformer = TfidfTransformer()
-
 train_tfidf = tfidf_transformer.fit_transform(train_counts)
-test_tfidf = tfidf_transformer.transform(test_counts)
-
 
 dtm = train_tfidf
-dtm_test = test_tfidf
-
 vocab = count_vect.get_feature_names()
-
-# pickle.dump(dtm, open("term-doc-matrix.p", "wb"))
-# dtm = pickle.load(open("term-doc-matrix.p", "rb"))
     
 import numpy as np  # a conventional alias
 import sklearn.feature_extraction.text as text
@@ -62,7 +45,7 @@ import sklearn.feature_extraction.text as text
 from sklearn import decomposition
 
 num_topics = 20
-num_top_words = 15
+num_top_words = 10
 
 nmf = decomposition.NMF(n_components=num_topics, random_state=1)
 
@@ -88,9 +71,8 @@ print()
 print()
 for t in range(len(topic_words)):
    print("Topic {}: {}".format(t+1, ' '.join(topic_words[t][:10])))
-   
-
-result = nmf.transform(dtm_test)
+print()
+print()
 
 # Find the top topics for the restaurant given above
 #m = []
@@ -111,6 +93,22 @@ result = nmf.transform(dtm_test)
 #for (t,p) in top5:
 #    print("Topic {}: {}".format(t+1, ' '.join(topic_words[t][:10])))
     
+# =================================================================
+#                        PREDICTING TOPICS
+# =================================================================
+
+btr = pickle.load(open("pickles/dict-of-business-to-reviews.p", "rb"))
+docnames = ["Appliance Service Center", "Burger King", "McDonald's", "Hunter Farm", "Panda Chinese Restaurant"]
+docnames.sort()
+
+test_data = []
+for i in docnames:
+    test_data.extend(btr[i])
+
+# johnathan's thing
+test_counts = count_vect.transform(test_data)
+test_tfidf = tfidf_transformer.transform(test_counts)
+dtm_test = test_tfidf
 
 doctopic = nmf.transform(dtm_test)
 doctopic = doctopic / np.sum(doctopic, axis=1, keepdims=True)
@@ -120,7 +118,6 @@ doctopic = doctopic / np.sum(doctopic, axis=1, keepdims=True)
 
 # turn this into an array so we can use NumPy functions
 docnames = np.asarray(docnames)
-
 doctopic_orig = doctopic.copy()
 
 # use method described in preprocessing section
@@ -140,33 +137,45 @@ doctopic = doctopic_grouped
 businesses = sorted(set(docnames))
 print("businesses")
 print(businesses)
+print()
 print("Top NMF topics in...")
 
+# one big aggregated review per topic per document. Review will be summarized later
 d = dict()
 for business in docnames:
-    d[business] = [];
-    
+    d[business] = dict()
+
+# for each business
 for i in range(len(doctopic)):
     top_topics = np.argsort(doctopic[i,:])[::-1][0:3]
-    top_topics_str = ' '.join(str(t+1) for t in top_topics)
+    top_topics_str = ' '.join(str(t+1) for t in top_topics) # +1 to topic number for 1:n output
     print("{}: {}".format(businesses[i], top_topics_str))
     
-    words_to_look_for = []
     for t in top_topics:
+        d[businesses[i]][t] = ""
+    
+    words_to_look_for_per_topic = dict()
+    for t in top_topics:
+        words_to_look_for_per_topic[t] = []
         for word in topic_words[t]:
-            words_to_look_for.append(word)
+            words_to_look_for_per_topic[t].append(word)
             
-    print(words_to_look_for)            
+    # for each sentence of review, if it meets the condition, add it to d[businesses[i]][topic]
     for review in btr[businesses[i]]:
-        count = 0
-        for word in words_to_look_for:
-            if (word in review):
-#                print(word)
-                count = count + 1
+        for sentence in review.split("."):
+            if len(sentence.split()) == 0:
                 continue
-            if(count/len(review.split()) > 0.125):
-                d[businesses[i]].append(review)
-                break
+            count_per_topic = []
+            for topic_index in range(len(top_topics)):
+                count_per_topic.append(0)
+                for word in words_to_look_for_per_topic[top_topics[topic_index]]:
+                    if(count_per_topic[topic_index] / len(sentence.split()) > 0.125):
+                        d[businesses[i]][top_topics[topic_index]] += sentence + " "
+                        break
+                    if (word in sentence):
+                        count_per_topic[topic_index] = count_per_topic[topic_index] + 1
+print()
+print()
 
 ['love', 'always', 'never', 'favorite', 'time', 'come', 'every', 'get', 'fresh', 
 'location', 'times', 'usually', 'family', 'years', 'make', 'food', 'service', 
@@ -241,28 +250,25 @@ from reduction import *
 
 reduction_ratios = []
 for business in docnames:
-    aggregate_reviewtext = ''
-    for review in d[business]:
-        aggregate_reviewtext += review
+    print("Summary of:", business)
+    for topic, review in d[business].items():
 #    reduction_ratio = len(d[business])/(len(btr[business]) + len(aggregate_reviewtext))
         
-    print("=== " + aggregate_reviewtext + " ===")
-    
-    if (len(aggregate_reviewtext) > 0): # A business needs to have at least one review to be summarized
-        reduction = Reduction()
+        if (len(review) > 0): # A business needs to have at least one review to be summarized
+            reduction = Reduction()
+            
+            ratio = 100 / len(review)
+            if (ratio > 0.62):
+                ratio = 0.62
+            
+            reduced_text = reduction.reduce(review, ratio)
+        else:
+            reduced_text = "N/A"
         
-        ratio = 300 / len(aggregate_reviewtext)
-        if (ratio > 0.62):
-            ratio = 0.62
-        
-        reduced_text = reduction.reduce(aggregate_reviewtext, ratio)
-    else:
-        reduced_text = "N/A"
-    print("Summary of " + business)
-    print(reduced_text)
+        print("Topic " + str(topic) + ":", reduced_text)
+    print()
 
-print("end")
-print("done")
+print("fine'")
 
 #mallet_vocab = []
 #
