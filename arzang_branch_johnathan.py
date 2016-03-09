@@ -156,7 +156,7 @@ for i in range(len(doctopic)):
         for word in topic_words[t]:
             words_to_look_for.append(word)
             
-    print(words_to_look_for)            
+#    print(words_to_look_for)            
     for review in btr[businesses[i]]:
         count = 0
         for word in words_to_look_for:
@@ -167,12 +167,6 @@ for i in range(len(doctopic)):
 #                print(word)
                 count = count + 1
 
-['love', 'always', 'never', 'favorite', 'time', 'come', 'every', 'get', 'fresh', 
-'location', 'times', 'usually', 'family', 'years', 'make', 'food', 'service', 
-'restaurant', 'mexican', 'excellent', 'fast', 'quality', 'bad', 'buffet', 'fresh', 
-'eat', 'chinese', 'slow', 'atmosphere', 'delicious', 'chicken', 'ordered', 'salad', 
-'delicious', 'sauce', 'cheese', 'lunch', 'rice', 'fried', 'menu', 'soup', 'sandwich', 
-'beef', 'meal', 'pork']
 #for k,v in d.items():
 #    print(k)
 #    print(len(v))
@@ -226,7 +220,7 @@ topic_labels = ['Topic {}'.format(k+1) for k in range(K)]
 # see http://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.legend for details
 # on making a legend in matplotlib
 
-plt.legend([p[0] for p in plots], topic_labels, bbox_to_anchor=(1.3, 1.2))
+#plt.legend([p[0] for p in plots], topic_labels, bbox_to_anchor=(1.3, 1.2))
 plt.show()
 
 # =================================================================
@@ -250,7 +244,7 @@ for business in docnames:
     if (len(aggregate_reviewtext) > 0): # A business needs to have at least one review to be summarized
         reduction = Reduction()
         
-        ratio = 300 / len(aggregate_reviewtext)
+        ratio = 75 / len(aggregate_reviewtext)
         if (ratio > 0.62):
             ratio = 0.62
         
