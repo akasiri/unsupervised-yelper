@@ -6,29 +6,37 @@ import re
     Though this will make an easy access complete dtm, you won't have the
     countvect for when you need to build a matrix for the prediction data
 """
-def extract_and_store_tfidf_dtm():
+def extract_and_store_tfidf_dtm(tokenization_method, review_count):
     # for consistent testing
     random.seed(1532525625823)
     
     raw_data = pickle.load(open("pickles/list-of-reviews.p", "rb"))
-    documents = random.sample(raw_data, 30000)    
+    documents = random.sample(raw_data, review_count)    
     
     from sklearn.feature_extraction.text import CountVectorizer
     from sklearn.feature_extraction.text import TfidfTransformer
-    from nltk.corpus import stopwords
+    import sklearn.feature_extraction.text as text
+            
+            
+    our_stopwords = "food great good place service like time just really love best nice ve friendly staff photographer ipad trial pole chopstick 2x honeymoon mastro tastefully dramatic tokyo importance ceremony visual checkin wa food great place t s good service time like just really love best nice neighborhood a little pricey cute place rick tequila a bus a bun a combo chinese restaurant the high side restroom great wine"
+    stopwords = text.ENGLISH_STOP_WORDS.union(set(our_stopwords.split(" ")))
     
-    import advanced_parsing
+    if tokenization_method == 'np':
+        count_vect = CountVectorizer(strip_accents="unicode", tokenizer = extract_np_tokens, stop_words=stopwords)
+    elif tokenization_method == 'lm':
+        count_vect = CountVectorizer(strip_accents="unicode", tokenizer = extract_lemmatized_tokens, stop_words=stopwords)
+    else:
+        count_vect = CountVectorizer(strip_accents="unicode", stop_words=stopwords)
 
-    count_vect = CountVectorizer(strip_accents="unicode", tokenizer = advanced_parsing.extract_np_tokens, stop_words=set(stopwords.words('english')))
     count_matrix = count_vect.fit_transform(documents)
 
     tfidf_transformer = TfidfTransformer()
     tfidf_matrix = tfidf_transformer.fit_transform(count_matrix)
     
     # so that we don't mave to run this again if we are using 
-    pickle.dump(tfidf_matrix, open("pickles/np-30000-dtm.p", "wb"))
-    pickle.dump(count_vect, open("pickles/np-30000-count-vect.p", "wb"))
-    pickle.dump(tfidf_transformer, open("pickles/np-30000-tfidf-trans.p", "wb"))
+    pickle.dump(tfidf_matrix, open("pickles/{}-{}-dtm.p".format(tokenization_method, review_count), "wb"))
+    pickle.dump(count_vect, open("pickles/{}-{}-count-vect.p".format(tokenization_method, review_count), "wb"))
+    pickle.dump(tfidf_transformer, open("pickles/{}-{}-tfidf-trans.p".format(tokenization_method, review_count), "wb"))
 
 
 def extract_np_tokens( doc: str):
@@ -54,7 +62,7 @@ def extract_np_tokens( doc: str):
                 np = ""
                 for (term, pos) in t.leaves():
                     np += term + " "
-                tokens.append(np[:-2])            
+                tokens.append(np[:-1])            
             
             for child in t:
                 traverse(child)
@@ -85,7 +93,9 @@ if __name__ == "__main__":
 #    print(extract_np_tokens(doc))
 #    print(extract_lemmatized_tokens(doc))
     
-    extract_and_store_tfidf_dtm()
+    extract_and_store_tfidf_dtm('np', 30000)
+    extract_and_store_tfidf_dtm('lm', 30000)
+    extract_and_store_tfidf_dtm('default', 30000)
     
     
     

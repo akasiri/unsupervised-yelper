@@ -64,6 +64,28 @@ def load_business_to_reviews():
     btr = pickle.load(open("pickles/dict-of-business-to-reviews.p", "rb"))
     return btr
 
+def print_top_5_topics(result, num_topics, topic_words):
+    # Find the top topics for the set of review scores given (doctopics)
+    m = []
+    for i in range(num_topics):
+        m.append(0)
+        
+    for i in result:
+        for j in range(num_topics):
+            m[j] += i[j]
+    
+    top5 = [(0,0),(0,0),(0,0),(0,0),(0,0)]
+    
+    for i in range(num_topics):
+        if m[i] > top5[4][1]:
+            top5[4] = (i, m[i])
+            top5.sort(reverse=True)
+    
+    for (t,p) in top5:
+        print("Topic {}: {}".format(t+1, ' '.join(topic_words[t][:]))) 
+
+    print()    
+    
 ###################
 # Main functions #
 ###################
@@ -76,7 +98,6 @@ def extract_text_features(train_data, test_data):
     ----------
     train_data : List[str]
         Training data in list. Will only take 30000 reviews for efficiency purposes
-
     test_data : List[str]
         Test data in list
 
@@ -99,6 +120,38 @@ def extract_text_features(train_data, test_data):
     vocab = count_vect.get_feature_names()
     
     return (train_tfidf, test_tfidf, vocab)
+    
+def load_extracted_text_features(test_data, tokenization_method = 'np', review_count = 30000):
+    """
+    Returns one types of training and test data features.
+        1) Term Frequency times Inverse Document Frequency (tf-idf): X_train_tfidf, X_test_tfidf
+
+    Parameters
+    ----------
+    test_data : List[str]
+        List of all reviews from the businesses we will be predicting for
+    tokenization_method : str
+        Either 'np', 'lm', or 'default'. Describes how the data was tokenized. Is used in the name of the stored data file.
+    review_count : int
+        Number of reviews used to build the stored data. 
+
+    Returns
+    -------
+    Tuple(scipy.sparse.csr.csr_matrix,.., list)
+        Returns X_train_tfidf, X_test_tfidf, vocab as a tuple.
+    """
+    
+    train_tfidf = pickle.load(open("pickles/{}-{}-dtm.p".format(tokenization_method, review_count),"rb"))
+    count_vect = pickle.load(open("pickles/{}-{}-count-vect.p".format(tokenization_method, review_count),"rb"))
+    tfidf_transformer = pickle.load(open("pickles/{}-{}-tfidf-trans.p".format(tokenization_method, review_count),"rb"))
+    
+    test_counts = count_vect.transform(test_data)
+    test_tfidf = tfidf_transformer.transform(test_counts)
+
+    vocab = count_vect.get_feature_names()
+    
+    return (train_tfidf, test_tfidf, vocab)
+    
 
 def fit_and_predict_NMF(num_topics, num_top_words, vocab, dtm_train, dtm_test):
     """
@@ -132,10 +185,13 @@ def fit_and_predict_NMF(num_topics, num_top_words, vocab, dtm_train, dtm_test):
     doctopic = doctopic / np.sum(doctopic, axis=1, keepdims=True)
     
     topic_words = []
-    for topic in nmf.components_:
+    for topic in nmf.components_: # components is the topic-term matrix
         word_idx = np.argsort(topic)[::-1][0:num_top_words]
         topic_words.append([vocab[i] for i in word_idx])
-        
+    
+    # I just hard coded the type of tokenization, because I didn't want to over-complicate the arguments to this function
+    pickle.dump((doctopic, topic_words), open("pickles/nmf-np-"+str(num_topics)+"-doctopic-topic_words.p", "wb"))
+    
     return (doctopic, topic_words)
     
 def fit_and_predict_LDA(num_topics, num_top_words, vocab, dtm_train, dtm_test):
@@ -168,17 +224,22 @@ def fit_and_predict_LDA(num_topics, num_top_words, vocab, dtm_train, dtm_test):
     doctopic = lda.transform(dtm_test)
     #scale the document-component matrix such that the component values associated with each document sum to one
     doctopic = doctopic / np.sum(doctopic, axis=1, keepdims=True)
-    
+
     topic_words = []
-    for topic in lda.components_:
+    for topic in lda.components_: # components is the topic-term matrix
         word_idx = np.argsort(topic)[::-1][0:num_top_words]
         topic_words.append([vocab[i] for i in word_idx])
     
+    print_top_5_topics(doctopic, len(lda.components_), topic_words)        
+    
 #    for t in range(len(topic_words)):
 #        print("Topic {}: {}".format(t+1, ' '.join(topic_words[t][:10])))
-        
+    
+    # I just hard coded the type of tokenization, because I didn't want to over-complicate the arguments to this function
+    pickle.dump((doctopic, topic_words), open("pickles/lda-np-"+str(num_topics)+"-doctopic-topic_words.p", "wb"))
+    
     return (doctopic, topic_words)
-   
+    
 def map_topics_to_businesses(docnames, num_topics, doctopic):
     """
     Maps the businesses to their topics based on their reviews.
@@ -215,7 +276,7 @@ def map_topics_to_businesses(docnames, num_topics, doctopic):
     
     return doctopic
 
-def find_relevant_reviews(doctopic, docnames, btr, top_topics_count, topic_words, threshold):
+def find_relevant_reviews(doctopic, docnames, btr, top_topics_count, topic_words, threshold, lemmatized = False):
     """
     Go through reviews of each restaurant and eliminate reviews that do not
     have a weighted term frequency greater than the threshold
@@ -234,12 +295,16 @@ def find_relevant_reviews(doctopic, docnames, btr, top_topics_count, topic_words
         A list of lists where each inner list holds the topic_words for a topic. The index should be the topic number minus 1. 
     threshold: float
         The threshold the weighted term frequency a review has to surpass to be added to returned dict
+    lemmatized: bool
+        Whether or not the original data was lemmatized. If it was, we need to lemmatize the reviews when checking if they are relevant.
 
     Returns
     -------
     dict(key: business, value: list of reviews)
         Returns businesses to most relevant reviews dict according to x top_topics
     """
+    from nltk.stem.wordnet import WordNetLemmatizer
+    
     d = dict()
     for business in docnames:
         d[business] = [];
@@ -258,6 +323,16 @@ def find_relevant_reviews(doctopic, docnames, btr, top_topics_count, topic_words
                 words_to_look_for.append(word)
                  
         for review in btr[docnames[i]]:
+            # lemmatizes the review so that we can accurately compare the topic words to the review
+            if lemmatized:
+                wnl = WordNetLemmatizer()
+                raw_review = review
+                review = []
+                
+                tokens = re.sub("(^ )|( $)+", "", re.sub("(\W)+", " ", raw_review.lower())).split(" ")
+                for j in tokens:
+                    review.append(wnl.lemmatize(j))
+            
             count = 0
             for word in words_to_look_for:
                 #if review has a weighted term frequency for the relevant word > threshold add to dict
@@ -335,7 +410,7 @@ def plot_businesses_histogram(doctopic, docnames, legend=False):
 #                         SUMMARIZATION
 # =================================================================
 
-def print_summary(docnames, dict_businesses):
+def generate_summary(docnames, dict_businesses):
     """
     Print summary of the relevant reviews of a business using Reduction github code.
     Importance of sentences determined using TextRank.
@@ -349,32 +424,43 @@ def print_summary(docnames, dict_businesses):
     """     
     for business in docnames:
         aggregate_reviewtext = ''
+        filenamecounter = 1
         for review in dict_businesses[business]:
-            aggregate_reviewtext += review
-    #    reduction_ratio = len(d[business])/(len(btr[business]) + len(aggregate_reviewtext))
-            
-    #    print("=== " + aggregate_reviewtext + " ===")
-        
+            with open("summary_results/{}_{}reviewtext.txt".format(business, str(filenamecounter)), "w") as revf:
+                revf.write(aggregate_reviewtext)
+            filenamecounter += 1
+            aggregate_reviewtext += review + "\n"
+   
         if (len(aggregate_reviewtext) > 0): # A business needs to have at least one review to be summarized
             reduction = Reduction()
             
-            ratio = 100 / len(aggregate_reviewtext)
-            if (ratio > 0.62): #if document has a ratio greater than the golden ratio set it equal to golden ratio
-                ratio = 0.62
+            ratio = 200 / len(aggregate_reviewtext)
+            if (ratio > 1):
+                ratio = 1
+            
             reduced_text = reduction.reduce(aggregate_reviewtext, ratio)
+            
+            with open("summary_results/{}_summary.txt".format(business), "w") as sumf:
+                sumf.write(" ".join(reduced_text))
         else:
             reduced_text = "N/A"
         print("Summary of " + business)
         print(reduced_text)
+        print()
+        print()
 
-def pipeline_NMF(test_data, num_topics, num_top_words, docnames, top_topics_count, threshold, legend=False):
+# =================================================================
+#                         PIPELINE
+# =================================================================
+
+def pipeline_NMF(num_topics, num_top_words, docnames, top_topics_count, threshold, legend=False, tokenization_method = 'np', review_count = 30000):
     """
     Pipeline for all our functions defined above for NMF topic modeling.
 
     Parameters
     ----------
-    test_data : List[str]
-        Test data in list
+#    test_data : List[str]
+#        Test data in list
     num_topics: int
         number of topics NMF decomposition should generate
     num_top_words: int
@@ -386,37 +472,38 @@ def pipeline_NMF(test_data, num_topics, num_top_words, docnames, top_topics_coun
     threshold: float
         The threshold the weighted term frequency a review has to surpass to be added to returned dict
     legend: boolean
-        Boolean to track if user wants to display a legend or not for the topics
+        Boolean to track if user wants to display a legend or not for the topics      
+    tokenization_method : str
+        Either 'np', 'lm', or 'default'. Describes how the data was tokenized. Is used in the name of the stored data file.
+    review_count : int
+        Number of reviews used to build the stored data. 
     """     
-    reviews = load_reviews()
     btr = load_business_to_reviews()
     
-    #hard_coded to test
-    test_data = btr["Appliance Service Center"] + btr["Burger King"] + btr["Hunter Farm"] + btr["McDonald's"] + btr["Panda Chinese Restaurant"] 
-    
-    dtm_train, dtm_test, vocab = extract_text_features(reviews, test_data)
-    
+    test_data = []
+    for business_name in docnames:
+        test_data += btr[business_name]
+        
+    dtm_train, dtm_test, vocab = load_extracted_text_features(test_data, tokenization_method, review_count)
     doctopic, topic_words = fit_and_predict_NMF(num_topics, num_top_words, vocab, dtm_train, dtm_test)
     
-#    for t in range(len(topic_words)):
-#        print("Topic {}: {}".format(t+1, ' '.join(topic_words[t][:10])))
+    for t in range(len(topic_words)):
+        print("Topic {}: {}".format(t+1, ' '.join(topic_words[t][:10])))
         
     doctopic = map_topics_to_businesses(docnames, num_topics, doctopic)
+    btr_relevant = find_relevant_reviews(doctopic, docnames, btr, top_topics_count, topic_words, threshold, tokenization_method == 'lm')
 
-    btr_relevant = find_relevant_reviews(doctopic, docnames, btr, top_topics_count, topic_words, threshold)
+    plot_businesses_histogram(doctopic, docnames)    
+    generate_summary(docnames, btr_relevant)
     
-    plot_businesses_histogram(doctopic, docnames)
-    
-    print_summary(docnames, btr_relevant)
-    
-def pipeline_LDA(test_data, num_topics, num_top_words, docnames, top_topics_count, threshold, legend=False):
+def pipeline_LDA(num_topics, num_top_words, docnames, top_topics_count, threshold, legend=False, tokenization_method = 'np', review_count = 30000):
     """
     Pipeline for all our functions defined above for LDA topic modeling.
 
     Parameters
     ----------
-    test_data : List[str]
-        Test data in list
+#    test_data : List[str]
+#        Test data in list
     num_topics: int
         number of topics NMF decomposition should generate
     num_top_words: int
@@ -429,33 +516,54 @@ def pipeline_LDA(test_data, num_topics, num_top_words, docnames, top_topics_coun
         The threshold the weighted term frequency a review has to surpass to be added to returned dict
     legend: boolean
         Boolean to track if user wants to display a legend or not for the topics
+    tokenization_method : str
+        Either 'np', 'lm', or 'default'. Describes how the data was tokenized. Is used in the name of the stored data file.
+    review_count : int
+        Number of reviews used to build the stored data. 
     """     
-    reviews = load_reviews()
+    
     btr = load_business_to_reviews()
 
-    #hard_coded to test
-    test_data = btr["Appliance Service Center"] + btr["Burger King"] + btr["Hunter Farm"] + btr["McDonald's"] + btr["Panda Chinese Restaurant"] 
+    test_data = []
+    for business_name in docnames:
+        test_data += btr[business_name]
     
-    dtm_train, dtm_test, vocab = extract_text_features(reviews, test_data)
-
-    doctopic, topic_words = fit_and_predict_LDA(num_topics, num_top_words, vocab, dtm_train, dtm_test)
-        
+    dtm_train, dtm_test, vocab = load_extracted_text_features(test_data, tokenization_method, review_count)
+    doctopic, topic_words = fit_and_predict_LDA(num_topics, num_top_words, vocab, dtm_train, dtm_test) 
+         
+    for t in range(len(topic_words)):
+        print("Topic {}: {}".format(t+1, ' '.join(topic_words[t][:10])))
+    
     doctopic = map_topics_to_businesses(docnames, num_topics, doctopic)
-
-    btr_relevant = find_relevant_reviews(doctopic, docnames, btr, top_topics_count, topic_words, threshold)
+    btr_relevant = find_relevant_reviews(doctopic, docnames, btr, top_topics_count, topic_words, threshold, tokenization_method == 'lm')
     
     plot_businesses_histogram(doctopic, docnames)
-    
-    print_summary(docnames, btr_relevant)
+    generate_summary(docnames, btr_relevant)
     
     
 if __name__ == '__main__':
     num_topics = 60
     num_top_words = 15
-    docnames = ["Appliance Service Center", "Burger King", "McDonald's", "Hunter Farm", "Panda Chinese Restaurant"]
+    docnames = ["Bazic Bar & Restoyaky", "Burger King", "McDonald's", "La Petite France", "Ice Monster Cafe"]
     docnames.sort()
     top_topics_count = 5
     threshold = 0.125
     
-    pipeline_NMF(test_data, num_topics, num_top_words, docnames, top_topics_count, threshold)
-    
+    print("starting 60...")
+    pipeline_LDA(num_topics, num_top_words, docnames, top_topics_count, threshold, tokenization_method = 'np', review_count = 30000)
+    print("starting 100...")    
+    num_topics = 100
+    pipeline_LDA(num_topics, num_top_words, docnames, top_topics_count, threshold, tokenization_method = 'np', review_count = 30000)
+    print("starting 120...")
+    num_topics = 120    
+    pipeline_LDA(num_topics, num_top_words, docnames, top_topics_count, threshold, tokenization_method = 'np', review_count = 30000)
+
+    print("starting NP...")
+    num_topics = 100    
+    pipeline_LDA(num_topics, num_top_words, docnames, top_topics_count, threshold, tokenization_method = 'np', review_count = 30000)
+    print("starting LM...")
+    num_topics = 100    
+    pipeline_LDA(num_topics, num_top_words, docnames, top_topics_count, threshold, tokenization_method = 'lm', review_count = 30000)
+    print("starting default...")
+    num_topics = 100    
+    pipeline_LDA(num_topics, num_top_words, docnames, top_topics_count, threshold, tokenization_method = 'default', review_count = 30000)

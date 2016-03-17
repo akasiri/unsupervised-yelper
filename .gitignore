@@ -1,6 +1,7 @@
 # We don't want to push or pull any of our data files
 *.json
 *.p
+/summary_results/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

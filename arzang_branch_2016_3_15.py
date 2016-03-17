@@ -96,7 +96,7 @@ for t in range(len(topic_words)):
 
 result = nmf.transform(dtm_test)
 
-# Find the top topics for the restaurant given above
+## Find the top topics for the restaurant given above
 #m = []
 #for i in range(num_topics):
 #    m.append(0)
